@@ -1,5 +1,5 @@
 This is an exploration of quality control aspects for potentially clinically relevant SNPs in DTC-GT data.
-The impetus was a [finding from Bastian](see (https://twitter.com/gedankenstuecke/status/981342202600161280)
+The impetus was a [finding from Bastian](https://twitter.com/gedankenstuecke/status/981342202600161280)
 that an APOL1 SNP in a [news story](https://www.huffingtonpost.com/entry/home-genetic-test-false-positives_us_5ac27188e4b04646b6451c42) 
 had 13% missingness in openSNP users.
 
