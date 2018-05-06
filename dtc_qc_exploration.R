@@ -6,7 +6,7 @@
 # Identify DTC array manfiests
 # Identify ACMG genes
 # Add allele freq information
-# Read in openSNP summary data
+# Incorporate openSNP summary data - missingness
 
 ##### 
 
@@ -395,7 +395,7 @@ write.table(ann.mrg, file="omniex_missense_acmg.txt",
 # put on GitHub for Bastian (and general transparency)
 
 #####
-# Read in openSNP summary data
+# Incorporate openSNP summary data - missingness
 #####
 # 5/5/18
 
@@ -543,4 +543,37 @@ with(acmg, table(acmg.gene, is.na(opensnp.miss.frac)))
 
 # unclear if we should say the other 104 - 73 are missing=0 or NA. 
 # safer to say NA until I confirm with Bastian the other interpretation
-# I'm also just noticing that APOL1 is
+# I'm also just noticing that APOL1 isn't on ACMG list
+
+# make a histogram
+library(ggplot2)
+ggplot(acmg, aes(x=opensnp.miss.frac)) + 
+  geom_histogram(binwidth=0.01, fill="darkblue", colour="white") +
+  theme_bw() + 
+  ggtitle("Fraction of missing calls, over openSNP users")
+ggsave("frac_misscall.png")
+
+# before saving annotated list of SNPs, adding in the number of openSNP observations
+obs <- dat.unlst[grepl("number_of_observations", names(dat.unlst))]
+
+rs.nms <- gsub(".number_of_observations", "", names(obs)); head(rs.nms)
+num.obs <- data.frame(rsID=rs.nms, nobs=obs)
+dim(num.obs) # 104 2
+summary(num.obs$nobs)
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 7    1070    1277    1867    2936    2953 
+
+acmg$opensnp.numobs <- num.obs$nobs[match(acmg$Name, num.obs$rsID)]
+acmg %>% print(width=Inf)
+
+# look at the SNPs with MCR > 5%. how many observations do they have?
+acmg %>% filter(opensnp.miss.frac > 0.05) %>% 
+  select(Name, acmg.gene, maf_All, opensnp.miss.frac, opensnp.numobs)
+# # A tibble: 3 x 5
+# Name       acmg.gene maf_All opensnp.miss.frac opensnp.numobs
+# <chr>      <chr>       <dbl>             <dbl>          <dbl>
+# 1 rs11583680 PCSK9      0.0804            0.354            2747
+# 2 rs2959656  MEN1       0.216             0.0610           1033
+# 3 rs3026760  RET        0                 0.0663            996
+
+# no, all have high # of observations.
