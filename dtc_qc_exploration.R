@@ -6,6 +6,7 @@
 # Identify DTC array manfiests
 # Identify ACMG genes
 # Add allele freq information
+# Read in openSNP summary data
 
 ##### 
 
@@ -392,3 +393,154 @@ write.table(ann.mrg, file="omniex_missense_acmg.txt",
             row.names=FALSE, quote=FALSE, sep="\t", col.names=TRUE)       
 
 # put on GitHub for Bastian (and general transparency)
+
+#####
+# Read in openSNP summary data
+#####
+# 5/5/18
+
+library(readr)
+
+# Bastian parsed openSNP raw data for the 104 selected snps (json format)
+
+# my first time dealing with json format - see if this will work
+# install.packages("rjson")
+library(rjson)
+dat <- rjson::fromJSON(file="opensnp_genotypes_processed.json")
+class(dat) # list
+names(dat)
+# [1] "rs3219497"  "rs3219484"  "rs11591147" "rs11583680" "rs562556"   "rs28362277"
+# [7] "rs505151"   "rs3850625"  "rs4523540"  "rs3730238"  "rs3766871"  "rs34967813"
+# [13] "rs12742148" "rs1042034"  "rs1042031"  "rs1801703"  "rs1801701"  "rs676210"  
+# [19] "rs533617"   "rs568413"   "rs13306187" "rs12713843" "rs679899"   "rs1367117" 
+# [25] "rs4987188"  "rs2020908"  "rs2020912"  "rs1800255"  "rs2271683"  "rs1516446" 
+# [31] "rs2340917"  "rs1799977"  "rs2020873"  "rs7626962"  "rs1805124"  "rs459552"  
+# [37] "rs17604693" "rs2076299"  "rs28763966" "rs6929069"  "rs34738426" "rs1805123" 
+# [43] "rs1073123"  "rs1799939"  "rs3026760"  "rs17158558" "rs11570112" "rs11570060"
+# [49] "rs3729989"  "rs2959656"  "rs2071312"  "rs1046116"  "rs2428140"  "rs766173"  
+# [55] "rs144848"   "rs1799944"  "rs1799951"  "rs4987048"  "rs4987117"  "rs1799954" 
+# [61] "rs11571660" "rs28897743" "rs169547"   "rs169548"   "rs11571746" "rs4987047" 
+# [67] "rs1801426"  "rs17071686" "rs3092905"  "rs7334118"  "rs732774"   "rs1061472" 
+# [73] "rs2277447"  "rs1801243"  "rs363821"   "rs140647"   "rs140597"   "rs140586"  
+# [79] "rs12324002" "rs25403"    "rs16967494" "rs17882252" "rs28897695" "rs16942"   
+# [85] "rs2227945"  "rs4986852"  "rs16941"    "rs4986848"  "rs799917"   "rs1800709" 
+# [91] "rs4986850"  "rs1799950"  "rs28897674" "rs28897673" "rs1893963"  "rs2230234" 
+# [97] "rs2278792"  "rs13306510" "rs1800321"  "rs12392549" "rs1864423"  "rs3729986" 
+# [103] "VG13S52444" "rs1800328" 
+
+# nice! the 104 SNPs
+# look at one snp
+names(dat[[1]])
+# [1] "absolute_values"        "relative_values"        "number_of_observations"
+
+dat[[1]]
+# $`absolute_values`
+# $`absolute_values`$`CC`
+# [1] 1015
+# 
+# $`absolute_values`$C
+# [1] 7
+# 
+# $`absolute_values`$CT
+# [1] 2
+# 
+# $`absolute_values`$GG
+# [1] 2
+# 
+# 
+# $relative_values
+# $relative_values$`CC`
+# [1] 0.9892788
+# 
+# $relative_values$C
+# [1] 0.006822612
+# 
+# $relative_values$CT
+# [1] 0.001949318
+# 
+# $relative_values$GG
+# [1] 0.001949318
+# 
+# 
+# $number_of_observations
+# [1] 1026
+
+# how can we calcualte missingness?
+dat[[2]] # oh, now I see there are some snps that have a relative count of "--"
+
+# also looks like we need to deal with strand issues. throw out where genotype appears to be haploid?
+
+# read in my original table
+acmg <- read_tsv("omniex_missense_acmg.txt", col_names = TRUE)
+dim(acmg); names(acmg)
+# [1] 104  15
+# [1] "Name"          "Chr"           "MapInfo"       "Alleles"       "transcripts"  
+# [6] "genes"         "In-exon"       "mutations"     "missense"      "acmg.gene"    
+# [11] "maf_All"       "maf_CEU_Unrel" "maf_CHB_Unrel" "maf_JPT_Unrel" "maf_YRI_Unrel"
+
+# how to extract the named element "$relative_values$`--`" from each list item from json
+head(unlist(dat))
+# rs3219497.absolute_values.CC  rs3219497.absolute_values.C rs3219497.absolute_values.CT 
+# 1.015000e+03                 7.000000e+00                 2.000000e+00 
+# rs3219497.absolute_values.GG rs3219497.relative_values.CC  rs3219497.relative_values.C 
+# 2.000000e+00                 9.892788e-01                 6.822612e-03
+
+# looks like i can just unlist and grep for name
+dat.unlst <- unlist(dat)
+head(dat.unlst[grep("relative_values.--", names(dat.unlst))]) # yup, that's what I want
+
+miss <- dat.unlst[grep("relative_values.--", names(dat.unlst))]
+
+rs.nms <- gsub(".relative_values.--", "", names(miss)); head(rs.nms)
+miss.freq <- data.frame(rsID=rs.nms, miss.frac=miss)
+dim(miss.freq); head(miss.freq)
+# 73 2
+
+summary(miss.freq$miss.frac)
+# Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+# 0.0003388 0.0009881 0.0027192 0.0121796 0.0060362 0.3538406
+
+# overall, the MCRs look reasonable. 
+sum(miss.freq$miss.frac > 0.05) # only 3 with MCR > 5%
+
+# tack onto acmg genes
+acmg$opensnp.miss.frac <- miss.freq$miss.frac[match(acmg$Name, miss.freq$rsID)]
+with(acmg, table(acmg.gene, is.na(opensnp.miss.frac)))
+# acmg.gene FALSE TRUE
+# APC         1    0
+# APOB        4    8
+# ATP7B       3    3
+# BRCA1      10    2
+# BRCA2      11    3
+# CACNA1S     1    0
+# COL3A1      1    2
+# DSC2        1    0
+# DSG2        2    0
+# DSP         4    1
+# FBN1        4    2
+# GLA         1    0
+# KCNH2       1    0
+# LDLR        0    1
+# MEN1        2    0
+# MLH1        1    1
+# MSH2        1    0
+# MSH6        2    0
+# MUTYH       1    1
+# MYBPC3      4    0
+# MYH11       0    1
+# MYL2        1    0
+# OTC         1    1
+# PCSK9       4    1
+# PKP2        1    0
+# RB1         2    0
+# RET         2    1
+# RYR2        1    2
+# SCN5A       2    0
+# TMEM43      1    0
+# TNNT2       1    1
+# TP53        1    0
+# TSC1        1    0
+
+# unclear if we should say the other 104 - 73 are missing=0 or NA. 
+# safer to say NA until I confirm with Bastian the other interpretation
+# I'm also just noticing that APOL1 is
