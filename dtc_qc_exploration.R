@@ -577,3 +577,7 @@ acmg %>% filter(opensnp.miss.frac > 0.05) %>%
 # 3 rs3026760  RET        0                 0.0663            996
 
 # no, all have high # of observations.
+
+# save the annotated data frame
+write.table(acmg, file="omniex_missense_acmg_annotated.txt", row.names=FALSE, quote=FALSE, sep="\t",
+            col.names=TRUE)
